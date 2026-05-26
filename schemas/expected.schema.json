@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hs3testsuite.local/schemas/expected.schema.json",
+  "type": "object",
+  "required": ["schema_version", "test_id", "checks"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "test_id": { "type": "string" },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind"],
+        "additionalProperties": true,
+        "properties": {
+          "id": { "type": "string" },
+          "kind": {
+            "type": "string",
+            "enum": ["static_integrity", "structure_import", "twice_delta_nll_scan", "point_eval"]
+          },
+          "target": { "type": "object" },
+          "reference_point": { "type": "object" },
+          "scan_parameter": { "type": "string" },
+          "scan_points": { "type": "array", "items": { "type": "number" } },
+          "expected": { "type": "array", "items": { "type": "number" } },
+          "tolerance": {
+            "type": "object",
+            "required": ["rtol", "atol"],
+            "additionalProperties": false,
+            "properties": {
+              "rtol": { "type": "number", "minimum": 0 },
+              "atol": { "type": "number", "minimum": 0 }
+            }
+          },
+          "comparison": { "type": "object" }
+        }
+      }
+    }
+  }
+}

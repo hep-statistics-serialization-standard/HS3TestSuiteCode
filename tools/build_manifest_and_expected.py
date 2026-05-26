@@ -1,0 +1,134 @@
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+
+from hs3suite.backends.roofit import RooFitBackend
+from hs3suite.manifest import canonical_sha256, extract_features, load_json, raw_sha256, write_json
+from hs3suite.specs import FIXTURES
+
+
+def default_parameter_point(payload: dict[str, Any]) -> dict[str, float]:
+    for point in payload.get("parameter_points", []):
+        if point.get("name") == "default_values":
+            return {
+                parameter["name"]: float(parameter["value"])
+                for parameter in point.get("parameters", [])
+                if "name" in parameter and "value" in parameter
+            }
+    return {}
+
+
+def structure_targets(payload: dict[str, Any]) -> dict[str, list[str]]:
+    def public_function_name(item: dict[str, Any]) -> bool:
+        name = item.get("name", "")
+        return isinstance(name, str) and not name.endswith("_exponential_inverted")
+
+    return {
+        "pdfs": sorted(item["name"] for item in payload.get("distributions", []) if "name" in item),
+        "functions": sorted(
+            item["name"] for item in payload.get("functions", []) if "name" in item and public_function_name(item)
+        ),
+        "data": sorted(item["name"] for item in payload.get("data", []) if "name" in item),
+    }
+
+
+def comparison() -> dict[str, str]:
+    return {
+        "type": "pointwise_comp",
+        "rule": "|evaluated - expected| <= atol + rtol * |expected|",
+    }
+
+
+def build_expected(spec, payload: dict[str, Any], backend: RooFitBackend | None) -> dict[str, Any]:
+    checks: list[dict[str, Any]] = [
+        {"id": "static_integrity", "kind": "static_integrity"},
+        {
+            "id": "structure_import",
+            "kind": "structure_import",
+            "target": structure_targets(payload),
+        },
+    ]
+    is_roofit_xfail = bool(spec.backend_expectations.get("roofit", {}).get("xfail", False))
+    if spec.scan and not is_roofit_xfail:
+        if backend is None:
+            raise RuntimeError("RooFit backend is required to build scan expectations")
+        hs3_path = ROOT / "fixtures" / spec.test_id / "hs3.json"
+        workspace = backend.load_workspace(hs3_path)
+        check = {
+            "id": "twice_delta_nll_scan",
+            "kind": "twice_delta_nll_scan",
+            "target": {"pdf": spec.scan.pdf, "data": spec.scan.data},
+            "reference_point": default_parameter_point(payload),
+            "scan_parameter": spec.scan.parameter,
+            "scan_points": list(spec.scan.points),
+            "expected": [],
+            "tolerance": {"rtol": 1e-8, "atol": 1e-7},
+            "comparison": comparison(),
+        }
+        check["expected"] = backend.run_twice_delta_nll_scan(workspace, check)
+        checks.append(check)
+    return {"schema_version": 1, "test_id": spec.test_id, "checks": checks}
+
+
+def build_metadata(spec) -> dict[str, Any]:
+    return {
+        "schema_version": 1,
+        "test_id": spec.test_id,
+        "title": spec.title,
+        "source": spec.source,
+        "description": spec.description,
+        "notes": list(spec.notes),
+        "modified_from_source": spec.modified_from_source,
+        "reference_backend": "roofit 6.41.01",
+    }
+
+
+def build_manifest_entry(spec, payload: dict[str, Any]) -> dict[str, Any]:
+    hs3_path = ROOT / "fixtures" / spec.test_id / "hs3.json"
+    features = extract_features(payload)
+    features["semantic"] = sorted(spec.semantic)
+    expected = load_json(ROOT / "fixtures" / spec.test_id / "expected.json")
+    entry = {
+        "test_id": spec.test_id,
+        "path": f"fixtures/{spec.test_id}",
+        "hashes": {
+            "sha256": raw_sha256(hs3_path),
+            "canonical_sha256": canonical_sha256(hs3_path),
+        },
+        "features": features,
+        "tags": sorted(spec.tags),
+        "conformance": sorted(spec.conformance),
+        "checks": [check["id"] for check in expected["checks"]],
+    }
+    if spec.backend_expectations:
+        entry["backend_expectations"] = spec.backend_expectations
+    return entry
+
+
+def main() -> int:
+    backend = RooFitBackend()
+    for spec in FIXTURES:
+        payload = load_json(ROOT / "fixtures" / spec.test_id / "hs3.json")
+        write_json(ROOT / "fixtures" / spec.test_id / "metadata.json", build_metadata(spec))
+        write_json(ROOT / "fixtures" / spec.test_id / "expected.json", build_expected(spec, payload, backend))
+
+    manifest = {
+        "schema_version": 1,
+        "generated_by": "tools/build_manifest_and_expected.py",
+        "reference_backend": "roofit 6.41.01",
+        "fixtures": [],
+    }
+    for spec in FIXTURES:
+        payload = load_json(ROOT / "fixtures" / spec.test_id / "hs3.json")
+        manifest["fixtures"].append(build_manifest_entry(spec, payload))
+    write_json(ROOT / "manifest.json", manifest)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

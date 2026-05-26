@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hs3testsuite.local/schemas/metadata.schema.json",
+  "type": "object",
+  "required": ["schema_version", "test_id", "title", "source", "description", "notes"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "test_id": { "type": "string" },
+    "title": { "type": "string" },
+    "source": { "type": "string" },
+    "description": { "type": "string" },
+    "notes": { "type": "array", "items": { "type": "string" } },
+    "modified_from_source": { "type": "boolean" },
+    "reference_backend": { "type": "string" }
+  }
+}
