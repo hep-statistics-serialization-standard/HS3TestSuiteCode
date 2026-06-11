@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
+from hs3suite.backends import available_backends, build_backend
 from hs3suite.manifest import extract_features, load_json, verify_hashes
 from hs3suite.runner import run_suite, summarize
 from hs3suite.validation import validate_suite
@@ -25,6 +28,15 @@ def test_feature_extraction_detects_interpreted_functions() -> None:
     assert "generic_dist" in features["types"]
     assert "generic_function" in features["types"]
     assert "functions" in features["sections"]
+
+
+def test_backend_registry_lists_known_backends() -> None:
+    assert available_backends() == ("pyhs3", "roofit")
+
+
+def test_backend_registry_rejects_unknown_backend() -> None:
+    with pytest.raises(ValueError, match="unsupported backend 'unknown'"):
+        build_backend("unknown")
 
 
 def test_roofit_runner_executes_reference_scan() -> None:

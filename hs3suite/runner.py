@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .backends.roofit import build_backend
+from .backends import build_backend
 from .manifest import load_json, verify_hashes
 from .validation import validate_suite
 

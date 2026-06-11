@@ -20,6 +20,18 @@ Run one fixture:
 python -m hs3suite run --backend roofit --test-id rf101_basics
 ```
 
+Run with the pyhs3 backend from the local mamba environment:
+
+```bash
+mamba run -n pyhs3 python -m hs3suite run --backend pyhs3
+```
+
+Or, from inside that environment:
+
+```bash
+python -m hs3suite run --backend pyhs3 --test-id rf101_basics
+```
+
 Validate the suite metadata, hashes, and runner behavior:
 
 ```bash
@@ -163,8 +175,23 @@ After import, the backend adapter exposes common operations to the runner:
 - build an NLL from a PDF and dataset
 - evaluate fixed scan points
 
-Only the RooFit adapter exists right now, but the runner is structured so
-another backend can implement the same operations later.
+The RooFit and pyhs3 adapters implement the same runner operations.
+
+For pyhs3, backend import is:
+
+```python
+ws = pyhs3.Workspace.load("fixtures/<test_id>/hs3.json", suppress_traceback=False)
+```
+
+The committed fixtures do not include likelihood objects for every scan. The
+pyhs3 adapter creates a temporary in-memory `pyhs3.likelihoods.Likelihood`
+from the `target.pdf` and `target.data` fields in `expected.json`, then
+evaluates `-2 * model.log_prob` at the frozen scan points. The HS3 fixture
+files and manifest hashes are unchanged.
+
+PyTensor compilation uses `/tmp/hs3suite_pytensor` as the default compiledir
+when `PYTENSOR_FLAGS` is not already set. This avoids relying on a writable
+home-directory PyTensor cache.
 
 ## Expected Failures
 
@@ -178,6 +205,11 @@ ROOT 6.41.01 exports internal analytical-convolution names that
 Expected failures count as `XFAIL`, not as failed tests. If an expected-failing
 fixture unexpectedly passes, the runner reports `XPASS` as a failure so the
 manifest can be reviewed.
+
+The pyhs3 backend intentionally does not mark current implementation gaps as
+skip or xfail. Unsupported pyhs3 features and numerical disagreements are
+reported as `FAILED` checks so a pyhs3 run shows directly which HS3 features
+still need implementation.
 
 ## Runner Flow
 

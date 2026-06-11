@@ -77,12 +77,6 @@ class RooFitBackend:
                 var.setVal(float(value))
 
 
-def build_backend(name: str):
-    if name != "roofit":
-        raise ValueError(f"unsupported backend {name!r}; available: roofit")
-    return RooFitBackend()
-
-
 @contextmanager
 def suppress_root_output():
     """Suppress noisy C++ diagnostics that bypass RooMsgService."""
