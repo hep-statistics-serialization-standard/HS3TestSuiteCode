@@ -16,7 +16,7 @@ from hs3suite.manifest import (
     write_json,
 )
 from hs3suite.specs import FIXTURES as LEGACY_FIXTURES
-from hs3suite.specs import FixtureSpec
+from hs3suite.specs import FixtureSpec, ScanSpec
 
 
 def default_parameter_point(payload: dict[str, Any]) -> dict[str, float]:
@@ -141,7 +141,13 @@ def main() -> int:
         FIXTURES = []
         for testcase_path in args.fixtures:
             md = load_json(Path(testcase_path) / "metadata.json")
-
+            if "nll_scan" in md:
+                md["scan"] = ScanSpec(
+                    pdf=md["nll_scan"]["pdf_name"],
+                    data=md["nll_scan"]["dataset_name"],
+                    parameter=md["nll_scan"]["parameter_name"],
+                    points=md["nll_scan"]["points"]
+                )
             FIXTURES.append(
                 FixtureSpec(
                     test_id=md["test_id"],
