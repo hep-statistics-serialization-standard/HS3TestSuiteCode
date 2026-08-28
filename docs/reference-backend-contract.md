@@ -8,11 +8,10 @@ This flow is for onboarding new fixtures only — it never re-generates or mutat
 already-committed fixture.
 
 It exists so that adding a new reference backend never requires touching this
-workflow, and never requires the backend author to write Python. The builtin RooFit
-pipeline (`tools/build_manifest_and_expected.py`, with the optional
-`hs3suite_backend.HS3TestSuiteBackend` plugin seam described in `CLAUDE.md`) remains
-the default, blessed path for backend authors who are fine writing Python. This
-contract exists for everyone else.
+workflow, and never requires the backend author to write Python. The builtin
+pipeline (`tools/build_manifest_and_expected.py`) remains the default, 
+blessed path for backend authors who are fine writing Python. This contract 
+exists for everyone else.
 
 ## Picking up an image
 
