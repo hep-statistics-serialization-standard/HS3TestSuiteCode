@@ -46,9 +46,10 @@ pytest
 - `fixtures/<test_id>/metadata.json`: human-readable provenance and notes.
 - `fixtures/<test_id>/expected.json`: machine-readable checks and frozen
   expected values.
-- `schemas/*.schema.json`: local JSON schemas for manifest, metadata, and
-  expected files.
 - `hs3suite/`: Python runner and backend adapters.
+- `hs3suite/schemas/*.schema.json`: JSON schemas for manifest, metadata, and
+  expected files, shipped with the package so an installed `hs3suite` can
+  validate any fixtures repository without a local copy.
 - `tests/`: pytest coverage for schema validation, hashes, feature extraction,
   runner behavior, and xfail handling.
 
@@ -259,7 +260,7 @@ The runner does the following:
 
 1. Build the requested backend adapter.
 2. Load `manifest.json`.
-3. Validate JSON files against local schemas.
+3. Validate JSON files against the schemas bundled with `hs3suite`.
 4. Verify `hs3.json` hashes from the manifest.
 5. For each selected fixture, load `expected.json`.
 6. Execute each check according to its `kind`.

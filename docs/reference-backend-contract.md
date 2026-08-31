@@ -50,9 +50,9 @@ adds both).
 **Required effects on success:**
 
 - `<fixture-dir>/expected.json` is written, valid against
-  `schemas/expected.schema.json`.
+  `hs3suite/schemas/expected.schema.json`.
 - `<repo-root>/manifest.json` is *extended* (not replaced) with this fixture's entry,
-  valid against `schemas/manifest.schema.json` — including correct
+  valid against `hs3suite/schemas/manifest.schema.json` — including correct
   `hashes.sha256` / `hashes.canonical_sha256` for `hs3.json` (see `raw_sha256` /
   `canonical_sha256` in `hs3suite/manifest.py`).
 

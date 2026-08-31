@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import json
+from importlib import resources
 from pathlib import Path
+from typing import Any
 
 import jsonschema
 
@@ -14,12 +17,19 @@ SCHEMAS = {
 }
 
 
+def load_schema(name: str) -> Any:
+    """Load a bundled JSON schema by short name ("manifest", "metadata", ...)."""
+    try:
+        filename = SCHEMAS[name]
+    except KeyError:
+        raise ValueError(f"unknown schema {name!r}") from None
+    resource = resources.files(__package__).joinpath("schemas", filename)
+    return json.loads(resource.read_text(encoding="utf-8"))
+
+
 def validate_suite(root: Path) -> list[str]:
     errors: list[str] = []
-    schemas = {
-        name: load_json(root / "schemas" / filename)
-        for name, filename in SCHEMAS.items()
-    }
+    schemas = {name: load_schema(name) for name in SCHEMAS}
     try:
         jsonschema.validate(load_json(root / "manifest.json"), schemas["manifest"])
     except jsonschema.ValidationError as exc:

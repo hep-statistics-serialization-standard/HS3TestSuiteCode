@@ -9,6 +9,12 @@ description = "HS3 backend conformance test suite"
 requires-python = ">=3.11"
 dependencies = ["jsonschema>=4"]
 
+[tool.setuptools.packages.find]
+include = ["hs3suite*"]
+
+[tool.setuptools.package-data]
+hs3suite = ["schemas/*.schema.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
