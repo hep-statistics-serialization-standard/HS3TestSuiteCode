@@ -1,57 +1,92 @@
 # HS3TestSuite
 
-Backend-neutral HS3 conformance fixtures and checks.
+Backend-neutral HS3 conformance checks.
 
-The committed fixtures are frozen HS3 JSON files with per-test expected
-results. The suite is designed so backends can be compared on the same HS3
-input files and the same machine-readable expectations.
+This repository holds the runner, the schemas, and the fixture-generation
+tooling. The fixtures themselves — frozen HS3 JSON files with per-test expected
+results — live in their own repository, and each backend ships as a plugin. The
+suite is designed so backends can be compared on the same HS3 input files and
+the same machine-readable expectations.
 
 ## How to Run
 
-Run all checks with the RooFit backend:
+The runner needs two things it does not contain: a **fixtures repository** to
+run against (`--root`) and a **backend plugin** to run with (`--backend`).
+
+Run all checks against a fixtures checkout:
 
 ```bash
-python -m hs3suite run --backend roofit
+python -m hs3suite run --root ../HS3TestFixtures
 ```
 
 Run one fixture:
 
 ```bash
-python -m hs3suite run --backend roofit --test-id rf101_basics
+python -m hs3suite run --root ../HS3TestFixtures --test-id rf101_basics
 ```
 
-Run with the pyhs3 backend from the local mamba environment:
+`--root` defaults to the current directory, so from inside a fixtures checkout
+that has this repository as `.hs3suite/` it is just:
 
 ```bash
-mamba run -n pyhs3 python -m hs3suite run --backend pyhs3
+PYTHONPATH=.hs3suite python3 -m hs3suite run
 ```
 
-Or, from inside that environment:
+In practice a run happens inside a reference-backend image, which supplies both
+the plugin and its runtime (ROOT, for the RooFit backend):
 
 ```bash
-python -m hs3suite run --backend pyhs3 --test-id rf101_basics
+docker run --rm -v "$PWD":/work -w /work \
+  -e PYTHONPATH=/work/.hs3suite:/opt/hs3testsuite "$IMAGE" \
+  python3 -m hs3suite run --root /work
 ```
 
-Validate the suite metadata, hashes, and runner behavior:
+Validate the runner itself — no fixtures, no plugin, no ROOT required:
 
 ```bash
 pytest
 ```
 
+## Backend Plugins
+
+There is no builtin backend. `--backend` names a plugin as `module` or
+`module:Class`, defaulting to `$HS3SUITE_BACKEND`, then to
+`hs3suite_backend:HS3TestSuiteBackend` — the module a reference-backend image
+installs on `PYTHONPATH`. The generator (`tools/build_manifest_and_expected.py`)
+resolves its backend exactly the same way, so a plugin that generates fixtures
+can also run them.
+
+A backend class implements `load_workspace`, `structure`,
+`run_structure_check`, `run_twice_delta_nll_scan`, `run_pdf_scan`, and
+`run_function_scan`, and carries a `name` attribute. It may also implement
+`upconvert`, which is what `tools/upconvert_hs3.py` round-trips fixtures
+through. That `name` — not the
+string passed to `--backend` — is the key used to look up
+`backend_expectations` in the manifest, so the same fixture keeps its known
+failures however the plugin was addressed on the command line. The full
+contract is in `docs/reference-backend-contract.md`.
+
 ## Repository Layout
 
-- `manifest.json`: index of all fixtures, their features, hashes, checks, and
-  backend-specific expectations.
+- `hs3suite/`: the runner, the manifest/validation helpers, and the plugin seam.
+- `hs3suite/schemas/*.schema.json`: JSON schemas for manifest, metadata, and
+  expected files, shipped with the package so an installed `hs3suite` can
+  validate any fixtures repository without a local copy.
+- `tools/`: fixture generation (`build_manifest_and_expected.py`) and HS3
+  upconversion (`upconvert_hs3.py`). Both take `--root` and `--backend`.
+- `tests/`: pytest coverage for the plugin seam, schema validation, hashes,
+  feature extraction, runner behavior, and xfail handling — all against a
+  synthetic suite built in a temporary directory.
+- `tests/suite/`: the checks that need a real fixtures repository. They skip
+  unless pointed at one, and are staged to move into that repository; see
+  `tests/suite/README.md`.
+
+A fixtures repository holds `manifest.json` at its root and, per fixture:
+
 - `fixtures/<test_id>/hs3.json`: frozen HS3 model file.
 - `fixtures/<test_id>/metadata.json`: human-readable provenance and notes.
 - `fixtures/<test_id>/expected.json`: machine-readable checks and frozen
   expected values.
-- `hs3suite/`: Python runner and backend adapters.
-- `hs3suite/schemas/*.schema.json`: JSON schemas for manifest, metadata, and
-  expected files, shipped with the package so an installed `hs3suite` can
-  validate any fixtures repository without a local copy.
-- `tests/`: pytest coverage for schema validation, hashes, feature extraction,
-  runner behavior, and xfail handling.
 
 ## IDs
 
@@ -212,36 +247,24 @@ tool = ROOT.RooJSONFactoryWSTool(ws)
 tool.importJSON("fixtures/<test_id>/hs3.json")
 ```
 
-After import, the backend adapter exposes common operations to the runner:
+After import, the backend plugin exposes common operations to the runner:
 
 - list PDFs/functions/data for structural checks
 - build an NLL from a PDF and dataset
 - evaluate fixed scan points
 
-The RooFit and pyhs3 adapters implement the same runner operations.
-
-For pyhs3, backend import is:
-
-```python
-ws = pyhs3.Workspace.load("fixtures/<test_id>/hs3.json", suppress_traceback=False)
-```
-
-The committed fixtures do not include likelihood objects for every scan. The
-pyhs3 adapter creates a temporary in-memory `pyhs3.likelihoods.Likelihood`
-from the `target.pdf` and `target.data` fields in `expected.json`, then
-evaluates `-2 * model.log_prob` at the frozen scan points. The HS3 fixture
-files and manifest hashes are unchanged.
-
-PyTensor compilation uses `/tmp/hs3suite_pytensor` as the default compiledir
-when `PYTENSOR_FLAGS` is not already set. This avoids relying on a writable
-home-directory PyTensor cache.
+Every plugin implements the same operations; how it gets there is its own
+business. A plugin backed by a Python HS3 implementation typically loads the
+model natively and evaluates the frozen scan points on its own graph. Whatever
+it does, the `hs3.json` files and the manifest hashes stay untouched: a backend
+reads fixtures, it never rewrites them.
 
 ## Expected Failures
 
 Known backend-specific failures are represented in `manifest.json` under
-`backend_expectations`.
+`backend_expectations`, keyed by the plugin's `name`.
 
-Currently `rf209_anaconv` is marked as an expected RooFit failure because
+For example, `rf209_anaconv` is marked as an expected `roofit` failure because
 ROOT 6.41.01 exports internal analytical-convolution names that
 `RooJSONFactoryWSTool.importJSON()` rejects on import.
 
@@ -249,34 +272,45 @@ Expected failures count as `XFAIL`, not as failed tests. If an expected-failing
 fixture unexpectedly passes, the runner reports `XPASS` as a failure so the
 manifest can be reviewed.
 
-The pyhs3 backend intentionally does not mark current implementation gaps as
-skip or xfail. Unsupported pyhs3 features and numerical disagreements are
-reported as `FAILED` checks so a pyhs3 run shows directly which HS3 features
-still need implementation.
+Marking a gap as `xfail` is a choice a backend makes per fixture. A backend
+under active development is better off leaving its gaps unmarked, so that
+unsupported HS3 features and numerical disagreements surface as plain `FAILED`
+checks and a run shows directly what still needs implementing.
 
 ## Runner Flow
 
 The runner does the following:
 
-1. Build the requested backend adapter.
-2. Load `manifest.json`.
-3. Validate JSON files against the schemas bundled with `hs3suite`.
+1. Load the backend plugin named by `--backend` (or its default) and instantiate
+   it.
+2. Load `manifest.json` from `--root`.
+3. Validate the manifest, and every fixture it registers, against the schemas
+   bundled with `hs3suite`. A fixture directory that the manifest does not
+   register is not validated and not run.
 4. Verify `hs3.json` hashes from the manifest.
 5. For each selected fixture, load `expected.json`.
-6. Execute each check according to its `kind`.
+6. Execute each check according to its `kind`, loading the workspace once per
+   fixture rather than once per check.
 7. Report `PASSED`, `FAILED`, `XFAIL`, or `SKIPPED`.
 
-The command exits with a nonzero status only if there are real failures.
+Validation and hash failures abort the run before any check executes, because a
+fixture whose model no longer matches its frozen hash cannot be meaningfully
+compared. The command exits with a nonzero status only if there are real
+failures.
 
 ## Updating Tests
 
-The committed files are the source of truth for the public suite. If a fixture
-or expected value is changed, keep these pieces consistent:
+The fixture files are the source of truth for the suite. If a fixture or
+expected value is changed, keep these pieces consistent:
 
 - `fixtures/<test_id>/hs3.json`
 - `fixtures/<test_id>/expected.json`
 - `fixtures/<test_id>/metadata.json`
 - `manifest.json` hashes and check list
 
-The current pytest coverage checks schemas, hashes, feature extraction, one
-representative RooFit scan, and expected-failure handling.
+`tools/build_manifest_and_expected.py -e -f fixtures/<test_id>` regenerates the
+last three from the first, through the same backend plugin the runner uses.
+
+The pytest coverage in this repository checks the plugin seam, schemas, hashes,
+feature extraction, runner dispatch, and expected-failure handling against a
+synthetic suite. The checks that need real fixtures live in `tests/suite/`.
