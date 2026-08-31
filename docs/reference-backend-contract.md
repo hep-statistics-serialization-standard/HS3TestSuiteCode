@@ -85,6 +85,45 @@ attribute. `name` is the key under which `manifest.json` records this backend's
 `backend_expectations` (`xfail`/`reason`) — it is the backend's identity in the suite,
 so it must stay stable across image rebuilds, and it is what the runner reports.
 
+### `upconvert` (optional)
+
+```python
+def upconvert(self, input_path: Path, output_path: Path, *, verbose: bool = False) -> None
+```
+
+Read the HS3 file at `input_path`, import it, re-export it, and write the result to
+`output_path` — the round-trip that migrates a fixture to whatever HS3 revision the
+backend now emits. It backs `tools/upconvert_hs3.py`, which finds the files to convert
+and moves each result into place; the conversion itself is the plugin's business,
+including keeping its library's diagnostics quiet. A plugin that only runs checks may
+omit it — the tool then exits with a message naming the backend, rather than failing
+mid-run.
+
+`output_path` is a fresh path inside a staging directory, named exactly like the file
+it will replace, so writing it cannot damage the fixture; the tool moves it over the
+target only once `upconvert` returns. Raise on failure — a backend that returns
+normally without writing `output_path` is reported as a failed conversion.
+
+`verbose` carries the tool's `--verbose` flag: with it set, let the library print
+whatever it normally would, since a failed import is otherwise silent. The keyword is
+optional — the tool inspects the signature and omits it for a plugin that takes only
+the two paths, warning that `--verbose` will not take effect.
+
+For RooFit that is:
+
+```python
+def upconvert(
+    self, input_path: Path, output_path: Path, *, verbose: bool = False
+) -> None:
+    workspace = self.ROOT.RooWorkspace("hs3suite_upconvert_ws")
+    tool = self.ROOT.RooJSONFactoryWSTool(workspace)
+    with nullcontext() if verbose else suppress_root_output():
+        if not tool.importJSON(str(input_path)):
+            raise RuntimeError(f"RooFit importJSON failed for {input_path}")
+        if not tool.exportJSON(str(output_path)):
+            raise RuntimeError(f"RooFit exportJSON failed for {output_path}")
+```
+
 The module has to work standing alone: it is installed as a top-level module, so it must
 not import from the `hs3suite` package (no relative imports), and its own dependencies
 are its own problem. Naming matters — a module or class under a different name is not
