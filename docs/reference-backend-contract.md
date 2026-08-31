@@ -71,8 +71,11 @@ reason `twice_delta_nll_scan` freezes `2ΔNLL` rather than a raw NLL.
 
 For the RooFit reference image, `generate-fixtures` is a thin wrapper that sources the
 ROOT environment and execs
-`python3 "$GITHUB_WORKSPACE/tools/build_manifest_and_expected.py" -e -f "$1"` — i.e. it
-delegates to this repo's existing Python pipeline. A backend author working in another
+`python3 "$GITHUB_WORKSPACE/.hs3suite/tools/build_manifest_and_expected.py" -e -f "$1"`
+— i.e. it delegates to this repo's existing Python pipeline, checked out alongside the
+fixtures. The tool treats the working directory as the suite root (override with
+`--root`), so `fixtures/` and `manifest.json` are resolved under `$GITHUB_WORKSPACE`
+rather than next to the script. A backend author working in another
 language instead ships a self-contained `generate-fixtures` that reproduces the same
 effects above without depending on this repo's Python at all.
 
