@@ -5,7 +5,7 @@
   "required": ["schema_version", "test_id", "checks"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "type": "integer", "const": 1 },
+    "schema_version": { "type": ["string", "integer"] },
     "test_id": { "type": "string" },
     "checks": {
       "type": "array",

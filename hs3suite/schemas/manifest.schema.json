@@ -5,7 +5,7 @@
   "required": ["schema_version", "fixtures"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "type": "integer", "const": 1 },
+    "schema_version": { "type": ["string", "integer"] },
     "generated_by": { "type": "string" },
     "reference_backend": { "type": "string" },
     "fixtures": {
