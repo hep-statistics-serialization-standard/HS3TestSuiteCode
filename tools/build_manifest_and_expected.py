@@ -7,21 +7,26 @@ from typing import Any
 CODE_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(CODE_ROOT))
 
-try:
-    from hs3suite_backend import HS3TestSuiteBackend
-except:
-    print("module 'hs3suite_backend' not found. Falling back to builtin RooFitBackend!")
-    from hs3suite.backends.roofit import RooFitBackend as HS3TestSuiteBackend
-
-from hs3suite.manifest import (
+from hs3suite.backends import (  # noqa: E402
+    DEFAULT_CLASS,
+    DEFAULT_MODULE,
+    ENV_VAR,
+    build_backend,
+)
+from hs3suite.manifest import (  # noqa: E402
     canonical_sha256,
     extract_features,
     load_json,
     raw_sha256,
     write_json,
 )
-from hs3suite.specs import FIXTURES as LEGACY_FIXTURES
-from hs3suite.specs import FixtureSpec, FunctionScanSpec, NLLScanSpec, PdfScanSpec
+from hs3suite.specs import FIXTURES as LEGACY_FIXTURES  # noqa: E402
+from hs3suite.specs import (  # noqa: E402
+    FixtureSpec,
+    FunctionScanSpec,
+    NLLScanSpec,
+    PdfScanSpec,
+)
 
 
 def relative_path(path: Path, root: Path) -> str:
@@ -189,10 +194,19 @@ def main() -> int:
         default=Path.cwd(),
         help="suite root holding fixtures/ and manifest.json (default: current directory)",
     )
+    parser.add_argument(
+        "--backend",
+        "-b",
+        default=None,
+        help=(
+            "backend plugin as 'module' or 'module:Class' "
+            f"(default: ${ENV_VAR}, else {DEFAULT_MODULE}:{DEFAULT_CLASS})"
+        ),
+    )
 
     args = parser.parse_args()
     root = args.root.resolve()
-    backend = HS3TestSuiteBackend()
+    backend = build_backend(args.backend)
 
     # (spec, fixture directory) pairs; the directory is where hs3.json and the generated
     # metadata.json/expected.json live.
