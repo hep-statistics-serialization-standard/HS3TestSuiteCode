@@ -8,9 +8,10 @@ This flow is for onboarding new fixtures only — it never re-generates or mutat
 already-committed fixture.
 
 It exists so that adding a new reference backend never requires touching this
-workflow, and never requires the backend author to write Python. The builtin
-pipeline (`tools/build_manifest_and_expected.py`) remains the default, 
-blessed path for backend authors who are fine writing Python. This contract 
+workflow, and never requires the backend author to write Python. The Python
+pipeline (`tools/build_manifest_and_expected.py`, driven by a `hs3suite_backend`
+plugin — see *The `hs3suite_backend` plugin seam* below) remains the default,
+blessed path for backend authors who are fine writing Python. This contract
 exists for everyone else.
 
 ## Picking up an image
@@ -68,6 +69,26 @@ no numbers.
 For `pdf_scan`, the value written to `expected` must be the density **normalised over the
 observables named in the entry**, not a raw expression value. Backends might disagree about what an unnormalised pdf value means, which is the same
 reason `twice_delta_nll_scan` freezes `2ΔNLL` rather than a raw NLL.
+
+## The `hs3suite_backend` plugin seam
+
+Independently of `generate-fixtures`, an image may install a Python module named
+`hs3suite_backend` on `PYTHONPATH` exposing a class `HS3TestSuiteBackend`. That is the
+seam both the fixture generator and the **runner** (`python -m hs3suite run`) load their
+backend through, so one plugin serves both: generating a fixture's frozen values, and
+checking any backend against them. `--backend module:Class` and `$HS3SUITE_BACKEND`
+override the default for local experiments.
+
+The class implements `load_workspace`, `structure`, `run_structure_check`,
+`run_twice_delta_nll_scan`, `run_pdf_scan` and `run_function_scan`, and carries a `name`
+attribute. `name` is the key under which `manifest.json` records this backend's
+`backend_expectations` (`xfail`/`reason`) — it is the backend's identity in the suite,
+so it must stay stable across image rebuilds, and it is what the runner reports.
+
+The module has to work standing alone: it is installed as a top-level module, so it must
+not import from the `hs3suite` package (no relative imports), and its own dependencies
+are its own problem. Naming matters — a module or class under a different name is not
+found, and the loader will say exactly that rather than silently substituting anything.
 
 For the RooFit reference image, `generate-fixtures` is a thin wrapper that sources the
 ROOT environment and execs

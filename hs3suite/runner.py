@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .backends import backend_name as resolve_backend_name
 from .backends import build_backend
 from .manifest import load_json, verify_hashes
 from .validation import validate_suite
@@ -32,8 +33,15 @@ def compare_vectors(actual: list[float], expected: list[float], tolerance: dict[
             )
 
 
-def run_suite(root: Path, backend_name: str, selected: set[str] | None = None) -> list[CheckResult]:
-    backend = build_backend(backend_name)
+def run_suite(
+    root: Path,
+    backend_spec: str | None = None,
+    selected: set[str] | None = None,
+    backend: Any = None,
+) -> list[CheckResult]:
+    if backend is None:
+        backend = build_backend(backend_spec)
+    backend_name = resolve_backend_name(backend, backend_spec)
     manifest = load_json(root / "manifest.json")
     results: list[CheckResult] = []
 

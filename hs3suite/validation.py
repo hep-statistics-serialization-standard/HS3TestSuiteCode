@@ -30,14 +30,17 @@ def load_schema(name: str) -> Any:
 def validate_suite(root: Path) -> list[str]:
     errors: list[str] = []
     schemas = {name: load_schema(name) for name in SCHEMAS}
+    manifest = load_json(root / "manifest.json")
     try:
-        jsonschema.validate(load_json(root / "manifest.json"), schemas["manifest"])
+        jsonschema.validate(manifest, schemas["manifest"])
     except jsonschema.ValidationError as exc:
-        errors.append(f"manifest.json: {exc.message}")
+        return [f"manifest.json: {exc.message}"]
 
-    for fixture_dir in sorted((root / "fixtures").iterdir()):
-        if not fixture_dir.is_dir():
-            continue
+    for fixture in manifest["fixtures"]:
+        fixture_dir = root / fixture["path"]
+        hs3_path = fixture_dir / "hs3.json"
+        if not hs3_path.exists():
+            errors.append(f"{hs3_path.relative_to(root)}: file not found")
         for kind in ("metadata", "expected"):
             path = fixture_dir / f"{kind}.json"
             if not path.exists():
