@@ -17,6 +17,9 @@ class ScanSpec:
     parameters: tuple[str, ...]
     points: tuple[tuple[float, ...], ...]
     id: str = "scan"
+    # Name of a parameter point of the HS3 file that the scan starts from, instead of the
+    # backend's state after import (the point "default_values").
+    parameter_point: str | None = None
 
     kind: ClassVar[str] = ""
 

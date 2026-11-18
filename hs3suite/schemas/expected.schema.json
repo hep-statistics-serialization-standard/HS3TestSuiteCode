@@ -20,6 +20,7 @@
             "enum": ["static_integrity", "structure_import", "twice_delta_nll_scan", "pdf_scan", "function_scan"]
           },
           "target": { "type": "object" },
+          "parameter_point": { "type": "string" },
           "reference_point": { "type": "object" },
           "scan_parameters": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
           "scan_points": {

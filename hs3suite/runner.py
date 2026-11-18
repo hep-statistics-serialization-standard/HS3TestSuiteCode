@@ -33,6 +33,21 @@ def compare_vectors(actual: list[float], expected: list[float], tolerance: dict[
             )
 
 
+def apply_parameter_point(backend: Any, workspace: Any, name: str, hs3_path: Path) -> None:
+    """Have the backend load the named parameter point of the HS3 file.
+
+    A check with a "parameter_point" starts from that point instead of the backend's state
+    after import. A backend that cannot load parameter points must not run such a check as
+    if the key were absent, so the check fails.
+    """
+    apply = getattr(backend, "apply_parameter_point", None)
+    if apply is None:
+        raise AssertionError(
+            f"the backend does not implement apply_parameter_point, needed for parameter_point {name!r}"
+        )
+    apply(workspace, name, hs3_path)
+
+
 def run_suite(
     root: Path,
     backend_spec: str | None = None,
@@ -84,6 +99,8 @@ def _run_fixture(root: Path, backend, fixture: dict[str, Any], expected: dict[st
     test_id = fixture["test_id"]
     hs3_path = root / fixture["path"] / "hs3.json"
     workspace = None
+    # The parameter point that a check loaded into the workspace, if any.
+    loaded_point: str | None = None
     results: list[CheckResult] = []
 
     for check in expected["checks"]:
@@ -95,6 +112,16 @@ def _run_fixture(root: Path, backend, fixture: dict[str, Any], expected: dict[st
             else:
                 if workspace is None:
                     workspace = backend.load_workspace(hs3_path)
+                wanted_point = check.get("parameter_point")
+                if kind != "structure_import" and wanted_point != loaded_point:
+                    # A parameter point need not list every parameter, so it cannot be undone
+                    # by loading another one: start from a fresh import.
+                    if loaded_point is not None:
+                        loaded_point = None
+                        workspace = backend.load_workspace(hs3_path)
+                    if wanted_point is not None:
+                        apply_parameter_point(backend, workspace, wanted_point, hs3_path)
+                        loaded_point = wanted_point
                 if kind == "structure_import":
                     backend.run_structure_check(workspace, check)
                 elif kind == "twice_delta_nll_scan":

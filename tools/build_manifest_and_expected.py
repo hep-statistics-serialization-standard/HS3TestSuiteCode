@@ -20,6 +20,7 @@ from hs3suite.manifest import (  # noqa: E402
     raw_sha256,
     write_json,
 )
+from hs3suite.runner import apply_parameter_point  # noqa: E402
 from hs3suite.specs import FIXTURES as LEGACY_FIXTURES  # noqa: E402
 from hs3suite.specs import (  # noqa: E402
     FixtureSpec,
@@ -37,15 +38,34 @@ def relative_path(path: Path, root: Path) -> str:
         raise SystemExit(f"fixture {path} is outside the suite root {root}") from None
 
 
-def default_parameter_point(payload: dict[str, Any]) -> dict[str, float]:
+def parameter_point_values(payload: dict[str, Any], name: str) -> dict[str, float] | None:
     for point in payload.get("parameter_points", []):
-        if point.get("name") == "default_values":
+        if point.get("name") == name:
             return {
                 parameter["name"]: float(parameter["value"])
                 for parameter in point.get("parameters", [])
                 if "name" in parameter and "value" in parameter
             }
-    return {}
+    return None
+
+
+def default_parameter_point(payload: dict[str, Any]) -> dict[str, float]:
+    return parameter_point_values(payload, "default_values") or {}
+
+
+def reference_point(payload: dict[str, Any], name: str | None) -> dict[str, float]:
+    """The reference point of a scan: "default_values", overridden by the named parameter point.
+
+    A parameter point need not list every parameter, so the named one is laid over the
+    default: that is the state of a backend that loads it after import.
+    """
+    values = default_parameter_point(payload)
+    if name is not None:
+        named = parameter_point_values(payload, name)
+        if named is None:
+            raise SystemExit(f"parameter point {name!r} is not in the HS3 file")
+        values.update(named)
+    return values
 
 
 def structure_targets(payload: dict[str, Any]) -> dict[str, list[str]]:
@@ -95,18 +115,28 @@ def build_expected(
             raise RuntimeError("RooFit backend is required to build numeric expectations")
         hs3_path = fixture_dir / "hs3.json"
         workspace = backend.load_workspace(hs3_path)
+        loaded_point = None
         for scan in scans:
+            if scan.parameter_point != loaded_point:
+                # Like the runner: a parameter point is loaded into a fresh import.
+                if loaded_point is not None:
+                    workspace = backend.load_workspace(hs3_path)
+                if scan.parameter_point is not None:
+                    apply_parameter_point(backend, workspace, scan.parameter_point, hs3_path)
+                loaded_point = scan.parameter_point
             check = {
                 "id": scan.id,
                 "kind": scan.kind,
                 "target": scan.target(),
-                "reference_point": default_parameter_point(payload),
+                "reference_point": reference_point(payload, scan.parameter_point),
                 "scan_parameters": list(scan.parameters),
                 "scan_points": [list(point) for point in scan.points],
                 "expected": [],
                 "tolerance": scan.tolerance(),
                 "comparison": comparison(),
             }
+            if scan.parameter_point is not None:
+                check["parameter_point"] = scan.parameter_point
             # Each kind's backend entry point is run_<kind> by construction.
             run = getattr(backend, f"run_{scan.kind}")
             check["expected"] = run(workspace, check, hs3_path)
@@ -166,7 +196,7 @@ def _specs(md: dict[str, Any], key: str, cls) -> tuple[Any, ...]:
             id=entry.get("id", default_id if len(entries) == 1 else f"{default_id}_{i}"),
             **{
                 field: (tuple(entry[field]) if field == "observables" else entry[field])
-                for field in ("pdf", "data", "likelihood", "observables", "function")
+                for field in ("pdf", "data", "likelihood", "observables", "function", "parameter_point")
                 if field in entry
             },
         )

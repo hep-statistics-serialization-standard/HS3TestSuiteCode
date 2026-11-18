@@ -59,6 +59,7 @@ can also run them.
 A backend class implements `load_workspace`, `structure`,
 `run_structure_check`, `run_twice_delta_nll_scan`, `run_pdf_scan`, and
 `run_function_scan`, and carries a `name` attribute. It may also implement
+`apply_parameter_point`, which checks with a `parameter_point` need, and
 `upconvert`, which is what `tools/upconvert_hs3.py` round-trips fixtures
 through. That `name` — not the
 string passed to `--backend` — is the key used to look up
@@ -175,6 +176,16 @@ from the original tutorial.
 
 `scan_parameters` is a list and each entry of `scan_points` is a list of the same length, so a scan can vary several parameters at once.
 
+A scan check of any kind can carry an optional `"parameter_point": "<name>"`, the name of one of the
+`parameter_points` of the HS3 file. The check then starts from that point instead of from the state of the
+backend after import (which is the point `default_values`): the backend loads it, with the values and,
+where it has the notion, the `const` flags of its parameters, before the `reference_point` is applied.
+Files with several parameter points need this when `default_values` is not the point a check is meant
+for, e.g. when it holds the result of a conditional fit. A parameter point need not list all parameters,
+so the runner gives every change of the parameter point a fresh import of the file; checks without the
+key always run from the state after import. A backend that cannot load parameter points fails such a
+check instead of ignoring the key.
+
 A `pdf_scan` check has the same shape but needs no dataset, so it also works on an `hs3.json` with no `data` section at all:
 
 ```json
@@ -203,7 +214,7 @@ means loading the file into a `RooWorkspace` using `RooJSONFactoryWSTool`.
 
 1. Imports the HS3 model.
 2. Finds the target PDF and dataset.
-3. Applies the `reference_point`.
+3. Loads the `parameter_point`, if the check names one, and applies the `reference_point`.
 4. Builds an NLL.
 5. Evaluates `2 * (NLL(scan point) - NLL(reference point))` at each scan point.
 6. Compares pointwise with `abs(actual - expected) <= atol + rtol * abs(expected)`.
