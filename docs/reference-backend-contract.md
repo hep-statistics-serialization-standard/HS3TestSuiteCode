@@ -85,6 +85,29 @@ attribute. `name` is the key under which `manifest.json` records this backend's
 `backend_expectations` (`xfail`/`reason`) — it is the backend's identity in the suite,
 so it must stay stable across image rebuilds, and it is what the runner reports.
 
+A scan entry in `metadata.json` may name a `parameter_point` of the HS3 file. The generated check then
+carries the same key, and its `reference_point` is `default_values` overlaid with that point.
+
+### `apply_parameter_point` (optional)
+
+```python
+def apply_parameter_point(self, workspace, name: str, hs3_path: Path) -> None
+```
+
+Set the parameters of `workspace` to the parameter point `name` of the HS3 file: the values and, where the
+backend has the notion, the `const` flags of the parameters that the point lists. Raise if the file has no
+such point. The runner and the generator call it for checks with a `"parameter_point"`, on a workspace
+that is in the state after import, and before the `reference_point` is applied. A backend without this
+method fails such checks; it must not run them as if the key were absent.
+
+For RooFit, which imports the parameter points as snapshots, that is:
+
+```python
+def apply_parameter_point(self, workspace, name: str, hs3_path: Path) -> None:
+    if not workspace.loadSnapshot(name):
+        raise AssertionError(f"parameter point {name!r} not found")
+```
+
 ### `upconvert` (optional)
 
 ```python

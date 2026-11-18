@@ -24,6 +24,7 @@
         "required": ["parameters", "points"],
         "properties": {
           "id": { "type": "string" },
+          "parameter_point": { "type": "string" },
           "parameters": {
             "type": "array",
             "items": { "type": "string" },
@@ -61,6 +62,7 @@
         "required": ["parameters", "points", "pdf", "observables"],
         "properties": {
           "id": { "type": "string" },
+          "parameter_point": { "type": "string" },
           "parameters": {
             "type": "array",
             "items": { "type": "string" },
@@ -91,6 +93,7 @@
         "required": ["parameters", "points", "function"],
         "properties": {
           "id": { "type": "string" },
+          "parameter_point": { "type": "string" },
           "parameters": {
             "type": "array",
             "items": { "type": "string" },
