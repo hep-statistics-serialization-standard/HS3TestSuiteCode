@@ -92,15 +92,11 @@ def build_expected(
         },
     ]
     scans = spec.all_scans()
-    if scans and backend is None:
-        raise RuntimeError("a backend plugin is required to build numeric expectations")
     # Keyed by the generating plugin's own name, exactly as the runner looks up
     # backend_expectations: a backend that cannot import this fixture cannot freeze
     # numbers for it either, whichever backend that happens to be.
     name = backend_name(backend, backend_spec)
-    is_xfail = backend is not None and bool(
-        spec.backend_expectations.get(name, {}).get("xfail", False)
-    )
+    is_xfail = bool(spec.backend_expectations.get(name, {}).get("xfail", False))
     if scans and is_xfail:
         # expected.json is overwritten either way, so say that the numbers are gone.
         print(

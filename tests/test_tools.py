@@ -496,23 +496,6 @@ def test_the_expectation_reaches_the_manifest_entry_too(
     assert entry["backend_expectations"] == {"fake": {"xfail": True, "reason": "cannot import"}}
 
 
-def test_generation_without_a_backend_is_refused_when_there_are_scans_to_freeze(
-    build_tool, fixture_dir: Path
-) -> None:
-    from hs3suite.specs import FixtureSpec, NLLScanSpec
-
-    spec = FixtureSpec(
-        test_id="synth_basics",
-        title="t",
-        source="s",
-        description="d",
-        nll_scans=(NLLScanSpec.one_dim("gauss", "gaussData", "mu", (0.0,)),),
-        reference_backend="fake 1.0",
-    )
-    with pytest.raises(RuntimeError, match="a backend plugin is required"):
-        build_tool.build_expected(spec, hs3_payload(), None, fixture_dir)
-
-
 def test_written_metadata_records_the_backend_the_fixture_was_generated_with(build_tool) -> None:
     """CI uses reference_backend as the container image, so it must be the spec's own
     value rather than a hard-coded RooFit version."""
