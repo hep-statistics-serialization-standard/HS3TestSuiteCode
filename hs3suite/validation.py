@@ -46,7 +46,11 @@ def validate_suite(root: Path) -> list[str]:
             if not path.exists():
                 errors.append(f"{path.relative_to(root)}: file not found")
                 continue
-            payload = load_json(path)
+            try:
+                payload = load_json(path)
+            except ValueError as exc:  # JSONDecodeError, or UnicodeDecodeError for bad UTF-8
+                errors.append(f"{path.relative_to(root)}: not valid JSON: {exc}")
+                continue
             try:
                 jsonschema.validate(payload, schemas[kind])
             except jsonschema.ValidationError as exc:

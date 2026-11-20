@@ -2,7 +2,15 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://hs3testsuite.local/schemas/metadata.schema.json",
   "type": "object",
-  "required": ["schema_version", "test_id", "title", "source", "description", "notes"],
+  "required": [
+    "schema_version",
+    "test_id",
+    "title",
+    "source",
+    "description",
+    "notes",
+    "reference_backend"
+  ],
   "additionalProperties": false,
   "properties": {
     "schema_version": { "type": ["string", "integer"] },
@@ -16,6 +24,17 @@
     "semantic": { "type": "array", "items": { "type": "string" } },
     "tags": { "type": "array", "items": { "type": "string" } },
     "conformance": { "type": "array", "items": { "type": "string" } },
+    "backend_expectations": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "xfail": { "type": "boolean" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
     "nll_scans": {
       "type": "array",
       "items": {

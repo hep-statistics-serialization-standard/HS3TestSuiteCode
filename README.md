@@ -44,6 +44,7 @@ docker run --rm -v "$PWD":/work -w /work \
 Validate the runner itself — no fixtures, no plugin, no ROOT required:
 
 ```bash
+pip install -e '.[test]'
 pytest
 ```
 
@@ -74,12 +75,16 @@ contract is in `docs/reference-backend-contract.md`.
   validate any fixtures repository without a local copy.
 - `tools/`: fixture generation (`build_manifest_and_expected.py`) and HS3
   upconversion (`upconvert_hs3.py`). Both take `--root` and `--backend`.
-- `tests/`: pytest coverage for the plugin seam, schema validation, hashes,
-  feature extraction, runner behavior, and xfail handling — all against a
-  synthetic suite built in a temporary directory.
-- `tests/suite/`: the checks that need a real fixtures repository. They skip
-  unless pointed at one, and are staged to move into that repository; see
-  `tests/suite/README.md`.
+- `tests/`: pytest coverage for the plugin seam, the scan specs, schema
+  validation, hashes, feature extraction, runner and CLI behavior, xfail
+  handling, and both tools — every one of them against a synthetic suite built
+  in a temporary directory and a fake in-process backend, so the whole suite
+  runs with no fixtures checkout, no plugin, and no ROOT.
+
+Checks that need real fixtures belong to the repository that holds them: a
+fixtures repository verifies itself with `validate_suite` and `verify_hashes`
+from `hs3suite`, and a backend repository verifies its plugin by running
+`python -m hs3suite run` against a fixtures checkout.
 
 A fixtures repository holds `manifest.json` at its root and, per fixture:
 
@@ -262,7 +267,8 @@ reads fixtures, it never rewrites them.
 ## Expected Failures
 
 Known backend-specific failures are represented in `manifest.json` under
-`backend_expectations`, keyed by the plugin's `name`.
+`backend_expectations`, keyed by the plugin's `name`. A fixture declares them in its
+`metadata.json` under the same key, and generation carries them into the manifest.
 
 For example, `rf209_anaconv` is marked as an expected `roofit` failure because
 ROOT 6.41.01 exports internal analytical-convolution names that
@@ -311,6 +317,9 @@ expected value is changed, keep these pieces consistent:
 `tools/build_manifest_and_expected.py -e -f fixtures/<test_id>` regenerates the
 last three from the first, through the same backend plugin the runner uses.
 
-The pytest coverage in this repository checks the plugin seam, schemas, hashes,
-feature extraction, runner dispatch, and expected-failure handling against a
-synthetic suite. The checks that need real fixtures live in `tests/suite/`.
+The pytest coverage in this repository checks the plugin seam, the scan specs,
+schemas, hashes, feature extraction, runner dispatch, CLI exit codes,
+expected-failure handling, and both tools — against synthetic suites and a fake
+backend, never against a fixtures checkout. Keeping real fixtures out of it is
+deliberate: the runner's tests must not start failing because fixture data
+moved, and the fixtures repository is where its own data is checked.

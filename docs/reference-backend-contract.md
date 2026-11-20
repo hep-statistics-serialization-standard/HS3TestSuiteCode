@@ -66,6 +66,12 @@ data-less kinds matter in particular for fixtures whose `hs3.json` has no `data`
 at all, where `twice_delta_nll_scan` cannot be built — without them such a fixture pins
 no numbers.
 
+A fixture may also declare `backend_expectations` in its `metadata.json`, keyed by
+backend `name` exactly as `manifest.json` does. When the *generating* backend is the one
+marked `xfail`, no numeric checks are emitted for that fixture — a backend that cannot
+import a model cannot freeze values for it either — and the expectation is carried
+through to the manifest entry.
+
 For `pdf_scan`, the value written to `expected` must be the density **normalised over the
 observables named in the entry**, not a raw expression value. Backends might disagree about what an unnormalised pdf value means, which is the same
 reason `twice_delta_nll_scan` freezes `2ΔNLL` rather than a raw NLL.
