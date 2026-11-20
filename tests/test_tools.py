@@ -539,3 +539,35 @@ def test_a_fixture_without_modified_from_source_still_generates(
     write_json(fixture_dir / "metadata.json", metadata)
 
     assert build_tool.main(["-f", str(fixture_dir), "-r", str(fixture_dir.parents[1])]) == 0
+
+
+def test_a_legacy_fixtures_expectation_survives_regeneration_from_its_metadata(
+    build_tool, tmp_path: Path, install_plugin, monkeypatch
+) -> None:
+    """The legacy path writes metadata.json from the spec; a later ``-f`` run reads the
+    spec back out of that file, so whatever the first run leaves out is lost for good."""
+    from hs3suite.specs import FixtureSpec, NLLScanSpec
+    from hs3suite.validation import validate_suite
+
+    install_plugin(source=GENERATOR_PLUGIN)
+    expectations = {"some_other_backend": {"xfail": True, "reason": "cannot import"}}
+    spec = FixtureSpec(
+        test_id="legacy_one",
+        title="t",
+        source="s",
+        description="d",
+        nll_scans=(NLLScanSpec.one_dim("gauss", "gaussData", "mu", (0.0, 1.0)),),
+        reference_backend="fake 1.0",
+        backend_expectations=expectations,
+    )
+    monkeypatch.setattr(build_tool, "LEGACY_FIXTURES", (spec,))
+    fixture_dir = tmp_path / "fixtures" / "legacy_one"
+    write_json(fixture_dir / "hs3.json", hs3_payload())
+
+    build_tool.main(["-r", str(tmp_path)])
+    assert validate_suite(tmp_path) == []
+    assert load_json(fixture_dir / "metadata.json")["backend_expectations"] == expectations
+
+    build_tool.main(["-e", "-f", str(fixture_dir), "-r", str(tmp_path)])
+    entry = load_json(tmp_path / "manifest.json")["fixtures"][0]
+    assert entry["backend_expectations"] == expectations

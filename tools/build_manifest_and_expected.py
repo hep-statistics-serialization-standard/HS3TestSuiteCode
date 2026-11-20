@@ -130,7 +130,7 @@ def build_expected(
 
 
 def build_metadata(spec) -> dict[str, Any]:
-    return {
+    metadata = {
         "schema_version": 1,
         "test_id": spec.test_id,
         "title": spec.title,
@@ -140,6 +140,9 @@ def build_metadata(spec) -> dict[str, Any]:
         "modified_from_source": spec.modified_from_source,
         "reference_backend": spec.reference_backend,
     }
+    if spec.backend_expectations:
+        metadata["backend_expectations"] = spec.backend_expectations
+    return metadata
 
 
 def build_manifest_entry(
