@@ -68,7 +68,7 @@ def verify_hashes(root: Path, manifest: dict[str, Any]) -> list[str]:
 
         try:
             actual_canonical = canonical_sha256(path)
-        except json.JSONDecodeError as exc:
+        except ValueError as exc:  # JSONDecodeError, or UnicodeDecodeError for bad UTF-8
             errors.append(f"{fixture['test_id']}: hs3.json is not valid JSON: {exc}")
             continue
         if actual_canonical != expected["canonical_sha256"]:

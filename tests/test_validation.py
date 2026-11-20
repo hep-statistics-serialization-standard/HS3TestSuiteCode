@@ -242,3 +242,24 @@ def test_one_broken_fixture_does_not_hide_the_next_one(suite_factory) -> None:
 
     errors = verify_hashes(suite.root, suite.manifest)
     assert sum("is not valid JSON" in error for error in errors) == 2
+
+
+def test_verify_hashes_reports_a_non_utf8_model_instead_of_raising(suite_factory) -> None:
+    suite = suite_factory()
+    (suite.fixture_dir("synth_basics") / "hs3.json").write_bytes(b'{"name": "\xff\xfe"}')
+
+    errors = verify_hashes(suite.root, suite.manifest)
+    assert any("hs3.json is not valid JSON" in error for error in errors)
+
+
+@pytest.mark.parametrize("name", ["metadata.json", "expected.json"])
+@pytest.mark.parametrize("content", [b"{not json", b'{"name": "\xff\xfe"}'])
+def test_validate_suite_reports_an_unparseable_fixture_file_instead_of_raising(
+    suite_factory, name: str, content: bytes
+) -> None:
+    suite = suite_factory()
+    (suite.fixture_dir("synth_basics") / name).write_bytes(content)
+
+    errors = validate_suite(suite.root)
+    assert len(errors) == 1
+    assert errors[0].startswith(f"fixtures/synth_basics/{name}: not valid JSON: ")
