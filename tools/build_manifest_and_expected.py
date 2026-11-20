@@ -11,6 +11,7 @@ from hs3suite.backends import (  # noqa: E402
     DEFAULT_CLASS,
     DEFAULT_MODULE,
     ENV_VAR,
+    backend_name,
     build_backend,
 )
 from hs3suite.manifest import (  # noqa: E402
@@ -76,7 +77,11 @@ def comparison() -> dict[str, str]:
 
 
 def build_expected(
-    spec, payload: dict[str, Any], backend: None, fixture_dir: Path
+    spec,
+    payload: dict[str, Any],
+    backend: Any,
+    fixture_dir: Path,
+    backend_spec: str | None = None,
 ) -> dict[str, Any]:
     checks: list[dict[str, Any]] = [
         {"id": "static_integrity", "kind": "static_integrity"},
@@ -86,13 +91,16 @@ def build_expected(
             "target": structure_targets(payload),
         },
     ]
-    is_roofit_xfail = bool(
-        spec.backend_expectations.get("roofit", {}).get("xfail", False)
-    )
     scans = spec.all_scans()
-    if scans and not is_roofit_xfail:
-        if backend is None:
-            raise RuntimeError("RooFit backend is required to build numeric expectations")
+    if scans and backend is None:
+        raise RuntimeError("a backend plugin is required to build numeric expectations")
+    # Keyed by the generating plugin's own name, exactly as the runner looks up
+    # backend_expectations: a backend that cannot import this fixture cannot freeze
+    # numbers for it either, whichever backend that happens to be.
+    is_xfail = backend is not None and bool(
+        spec.backend_expectations.get(backend_name(backend, backend_spec), {}).get("xfail", False)
+    )
+    if scans and not is_xfail:
         hs3_path = fixture_dir / "hs3.json"
         workspace = backend.load_workspace(hs3_path)
         for scan in scans:
@@ -123,7 +131,7 @@ def build_metadata(spec) -> dict[str, Any]:
         "description": spec.description,
         "notes": list(spec.notes),
         "modified_from_source": spec.modified_from_source,
-        "reference_backend": "roofit 6.41.01",
+        "reference_backend": spec.reference_backend,
     }
 
 
@@ -174,7 +182,7 @@ def _specs(md: dict[str, Any], key: str, cls) -> tuple[Any, ...]:
     )
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -204,7 +212,7 @@ def main() -> int:
         ),
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     root = args.root.resolve()
     backend = build_backend(args.backend)
 
@@ -231,7 +239,9 @@ def main() -> int:
                 semantic=md.get("semantic", ()),
                 tags=md.get("tags", ()),
                 conformance=md.get("conformance", ()),
-                modified_from_source=md["modified_from_source"],
+                # Optional in metadata.schema.json, so absent means "not modified"
+                # rather than a fixture that cannot be generated.
+                modified_from_source=md.get("modified_from_source", False),
                 notes=md.get("notes", ""),
                 backend_expectations=md.get("backend_expectations", {}),
                 reference_backend=md["reference_backend"],
@@ -248,7 +258,7 @@ def main() -> int:
             write_json(metadata_path, build_metadata(spec))
         write_json(
             fixture_dir / "expected.json",
-            build_expected(spec, payload, backend, fixture_dir),
+            build_expected(spec, payload, backend, fixture_dir, args.backend),
         )
 
     manifest_path = root / "manifest.json"

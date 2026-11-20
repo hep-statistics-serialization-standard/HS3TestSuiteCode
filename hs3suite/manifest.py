@@ -46,14 +46,31 @@ def extract_features(payload: dict[str, Any]) -> dict[str, list[str]]:
 
 
 def verify_hashes(root: Path, manifest: dict[str, Any]) -> list[str]:
+    """Compare every registered model against its frozen hashes.
+
+    A file that cannot be read, or cannot be parsed for the canonical hash, is reported
+    like any other mismatch rather than raised: the whole point of this pass is to tell
+    the caller what is wrong with a suite, and an unreadable fixture is one of the
+    things that can be wrong with it.
+    """
     errors: list[str] = []
     for fixture in manifest["fixtures"]:
         path = root / fixture["path"] / "hs3.json"
         expected = fixture["hashes"]
-        actual_raw = raw_sha256(path)
-        actual_canonical = canonical_sha256(path)
+
+        try:
+            actual_raw = raw_sha256(path)
+        except OSError as exc:
+            errors.append(f"{fixture['test_id']}: cannot read hs3.json: {exc}")
+            continue
         if actual_raw != expected["sha256"]:
             errors.append(f"{fixture['test_id']}: raw sha256 mismatch")
+
+        try:
+            actual_canonical = canonical_sha256(path)
+        except json.JSONDecodeError as exc:
+            errors.append(f"{fixture['test_id']}: hs3.json is not valid JSON: {exc}")
+            continue
         if actual_canonical != expected["canonical_sha256"]:
             errors.append(f"{fixture['test_id']}: canonical sha256 mismatch")
     return errors

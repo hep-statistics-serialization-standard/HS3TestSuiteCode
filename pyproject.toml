@@ -9,6 +9,9 @@ description = "HS3 backend conformance test suite"
 requires-python = ">=3.11"
 dependencies = ["jsonschema>=4"]
 
+[project.optional-dependencies]
+test = ["pytest>=8"]
+
 [tool.setuptools.packages.find]
 include = ["hs3suite*"]
 
