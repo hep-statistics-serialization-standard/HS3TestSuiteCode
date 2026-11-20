@@ -457,6 +457,21 @@ def test_a_fixture_the_generating_plugin_cannot_import_freezes_no_numbers(
     assert kinds == ["static_integrity", "structure_import"]
 
 
+def test_skipping_the_numeric_checks_is_announced(
+    build_tool, fixture_dir: Path, install_plugin, capsys
+) -> None:
+    """Regenerating with an xfail backend overwrites expected.json without its numbers;
+    that must not happen silently."""
+    install_plugin(source=GENERATOR_PLUGIN)
+    _with_xfail(fixture_dir, "fake")
+
+    build_tool.main(["-f", str(fixture_dir), "-r", str(fixture_dir.parents[1])])
+    out = capsys.readouterr().out
+    assert "synth_basics" in out
+    assert "'fake' is marked xfail" in out
+    assert "3 numeric check(s) not generated" in out
+
+
 def test_an_expectation_naming_another_backend_does_not_suppress_generation(
     build_tool, fixture_dir: Path, install_plugin
 ) -> None:

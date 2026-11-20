@@ -97,9 +97,16 @@ def build_expected(
     # Keyed by the generating plugin's own name, exactly as the runner looks up
     # backend_expectations: a backend that cannot import this fixture cannot freeze
     # numbers for it either, whichever backend that happens to be.
+    name = backend_name(backend, backend_spec)
     is_xfail = backend is not None and bool(
-        spec.backend_expectations.get(backend_name(backend, backend_spec), {}).get("xfail", False)
+        spec.backend_expectations.get(name, {}).get("xfail", False)
     )
+    if scans and is_xfail:
+        # expected.json is overwritten either way, so say that the numbers are gone.
+        print(
+            f"NOTE    {spec.test_id}: backend {name!r} is marked xfail; "
+            f"{len(scans)} numeric check(s) not generated"
+        )
     if scans and not is_xfail:
         hs3_path = fixture_dir / "hs3.json"
         workspace = backend.load_workspace(hs3_path)
