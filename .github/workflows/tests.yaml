@@ -29,3 +29,6 @@ jobs:
 
       - name: Run tests
         run: pytest -q
+
+      - name: Check the console script
+        run: hs3suite run -h
